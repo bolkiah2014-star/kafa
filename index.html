@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sistem Pengurusan KAFA</title>
+  <meta name="description" content="Sistem Pengurusan KAFA SK Maludam">
+  <meta name="theme-color" content="#0b3d2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="KAFA SKM">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <style>
+    html, body { margin: 0; height: 100%; background: #0b3d2e; overflow: hidden; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+    #app { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: block; background: #f6f3ea; }
+    .lapis { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; text-align: center; color: #e9f3ee;
+      background: radial-gradient(circle at 50% 35%, #145c43 0%, #0b3d2e 70%); transition: opacity .4s; z-index: 5; }
+    .lapis img { width: 168px; height: 168px; filter: drop-shadow(0 8px 22px rgba(0,0,0,.35)); }
+    .lapis h1 { margin: 0; font-size: 20px; letter-spacing: .3px; }
+    .lapis p { margin: 0; font-size: 14px; color: #bcd8cb; max-width: 420px; line-height: 1.5; }
+    .spin { width: 30px; height: 30px; border: 3px solid rgba(255,255,255,.2); border-top-color: #e3c25b; border-radius: 50%; animation: p 1s linear infinite; }
+    @keyframes p { to { transform: rotate(360deg); } }
+    .btn { display: inline-block; padding: 12px 20px; border-radius: 12px; background: #e3c25b; color: #0b3d2e; font-weight: 700; text-decoration: none; border: 0; font-size: 15px; cursor: pointer; }
+    .btn.g { background: transparent; color: #e9f3ee; border: 1px solid rgba(255,255,255,.35); }
+    #bantuan { display: none; flex-direction: column; gap: 10px; align-items: center; }
+    .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: rgba(0,0,0,.82); color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 13px; z-index: 9; opacity: 0; transition: opacity .3s; pointer-events: none; max-width: 90vw; text-align: center; }
+    .toast.on { opacity: 1; }
+  </style>
+  <script src="config.js"></script>
+</head>
+<body>
+  <!-- Skrin pembuka -->
+  <div class="lapis" id="pembuka">
+    <img src="icons/icon-512.png" alt="Sistem Pengurusan KAFA">
+    <h1 id="nama">Sistem Pengurusan KAFA</h1>
+    <div class="spin" id="pusing"></div>
+    <p id="mesej">Memuatkan sistem…</p>
+    <div id="bantuan">
+      <p>Sistem mengambil masa lebih lama daripada biasa untuk dibuka.</p>
+      <a class="btn" id="bukaTerus" target="_self">Buka Terus Sistem</a>
+      <button class="btn g" onclick="location.reload()">Cuba Semula</button>
+    </div>
+  </div>
+
+  <!-- Skrin selepas "Tutup Aplikasi" -->
+  <div class="lapis" id="ditutup" style="display:none">
+    <img src="icons/icon-192.png" alt="">
+    <h1>Terima kasih 👋</h1>
+    <p>Anda boleh menutup tab ini atau leret aplikasi ke atas untuk keluar.</p>
+    <button class="btn" onclick="bukaSemula()">Buka Semula Aplikasi</button>
+  </div>
+
+  <iframe id="app" title="Sistem Pengurusan KAFA" allow="camera; microphone; clipboard-read; clipboard-write; fullscreen; geolocation"></iframe>
+  <div class="toast" id="toast"></div>
+
+  <script>
+  (function () {
+    var C = window.KAFA_CONFIG || {}, gas = String(C.GAS_URL || '').trim();
+    var f = document.getElementById('app'), pembuka = document.getElementById('pembuka');
+    if (C.NAMA) { document.title = C.NAMA; document.getElementById('nama').textContent = C.NAMA; }
+    function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove('on'); }, 2600); }
+
+    if (!/^https:\/\/script\.google\.com\//.test(gas)) {
+      document.getElementById('pusing').style.display = 'none';
+      document.getElementById('mesej').innerHTML = 'Pautan sistem belum ditetapkan.<br>Buka fail <b>config.js</b> dan tampal URL Web App Apps Script pada <b>GAS_URL</b>.';
+      return;
+    }
+
+    // Bina URL sistem: tambah shell=1 + bawa parameter (cth. ?hadir=KOD daripada QR kehadiran)
+    var q = new URLSearchParams(location.search); q.set('shell', '1');
+    var src = gas + (gas.indexOf('?') >= 0 ? '&' : '?') + q.toString();
+    var terus = new URLSearchParams(location.search); var srcTerus = gas + (terus.toString() ? '?' + terus.toString() : '');
+    document.getElementById('bukaTerus').href = srcTerus;
+    f.src = src;
+    // Sembunyikan parameter daripada bar alamat (pautan kekal pendek)
+    if (location.search) history.replaceState({ kafa: 'asas' }, '', location.pathname);
+
+    var sedia = false;
+    function siap() { if (sedia) return; sedia = true; pembuka.style.opacity = '0'; setTimeout(function () { pembuka.style.display = 'none'; }, 400); }
+    f.addEventListener('load', function () { setTimeout(siap, 1500); });
+    setTimeout(function () { if (!sedia) { document.getElementById('bantuan').style.display = 'flex'; document.getElementById('mesej').textContent = ''; } }, 20000);
+
+    /* ---------- BUTANG BACK: jangan tutup aplikasi ----------
+       Satu "perangkap" sejarah sentiasa dikekalkan. Bila Back ditekan, aplikasi
+       diberitahu supaya kembali ke skrin sebelumnya — halaman tidak ditinggalkan. */
+    function pasangPerangkap() { if (!history.state || history.state.kafa !== 'perangkap') history.pushState({ kafa: 'perangkap' }, '', location.pathname); }
+    if (!history.state) history.replaceState({ kafa: 'asas' }, '', location.pathname);
+    pasangPerangkap();
+    function siar(w, msg, d) { // hantar mesej ke semua bingkai aplikasi (Apps Script menggunakan bingkai bersarang)
+      try { w.postMessage(msg, '*'); } catch (e) { }
+      if (d > 4) return;
+      try { for (var i = 0; i < w.length; i++) siar(w[i], msg, d + 1); } catch (e) { }
+    }
+    window.addEventListener('popstate', function () {
+      pasangPerangkap();
+      if (document.getElementById('ditutup').style.display !== 'none') return;
+      if (sedia) siar(f.contentWindow, { kafa: 'back' }, 0); else toast('Sistem sedang dimuatkan…');
+    });
+
+    // Mesej daripada aplikasi
+    window.addEventListener('message', function (e) {
+      var d = e.data; if (!d || typeof d !== 'object' || !d.kafa) return;
+      if (!/(^https:\/\/script\.google\.com$)|(\.googleusercontent\.com$)/.test(e.origin)) return;
+      if (d.kafa === 'ready') siap();
+      if (d.kafa === 'nav' || d.kafa === 'ready') { siap(); pasangPerangkap(); }
+      if (d.kafa === 'tutup') tutup();
+    });
+
+    function tutup() {
+      try { window.close(); } catch (e) { }
+      setTimeout(function () { document.getElementById('ditutup').style.display = 'flex'; f.style.visibility = 'hidden'; }, 300);
+    }
+    window.bukaSemula = function () { document.getElementById('ditutup').style.display = 'none'; f.style.visibility = 'visible'; };
+
+    // PWA: boleh dipasang ke skrin utama telefon
+    if ('serviceWorker' in navigator) window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () { }); });
+  })();
+  </script>
+</body>
+</html>
